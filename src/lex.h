@@ -39,8 +39,15 @@ typedef struct {
 Transaction** parsedoc(int fd);
 void search_for_next_char(const char buf[], int start_idx, HashTable* ht);
 Word* getword(const char buf[], int start_idx, size_t file_size);
-Transaction* createtransaction(const char buf[], int start_idx, size_t file_size);
+Transaction* createtransaction(const char buf[], int start_idx,
+                               size_t file_size);
 int iswhitespace(const char ch);
 void updateTransaction(Transaction* tr, const char* wordname, const char* data);
 
+void checkForSectionEnd(const char* buf, size_t file_size, int close_slice_size,
+                        char* data, int datacount, Word* next_word,
+                        int* buf_idx, Transaction* tr);
+int checkForStmtEnd(const char* buf, Word** next_word, char* data,
+                    int* ending_index, int* datacount, int buf_idx,
+                    char* closing_token, int closing_token_size);
 #endif

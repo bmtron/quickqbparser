@@ -1,12 +1,10 @@
 #include "lex.h"
 
-#include <stdio.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
 
 Transaction** parsedoc(int fd) {
         struct stat st;
@@ -39,7 +37,8 @@ Transaction** parsedoc(int fd) {
                                     getword(read_buffer, i + 1, file_size);
                                 // search_for_next_char(read_buffer, i, ht);
                                 // only concerned with stmttrn stuff
-                                if (strncmp(next_word->name, STMTTRN, 7) == 0) {
+                                if (strncmp(next_word->name, STMTTRN,
+                                            strlen(STMTTRN)) == 0) {
                                         Transaction* new_tr = createtransaction(
                                             read_buffer, next_word->start_idx,
                                             file_size);
@@ -90,7 +89,6 @@ Transaction* createtransaction(const char* buf, int start_idx,
                                size_t file_size) {
         Transaction* tr = malloc(sizeof(Transaction));
         const int closing_token_size = 10;
-        const int end_section_cmp_delim = 12;
         const int close_slice_size = 2;
         const char string_terminator = '\0';
         const char* stmttrn = "STMTTRN";
@@ -110,52 +108,17 @@ Transaction* createtransaction(const char* buf, int start_idx,
                 if (buf[i] == START_TOKEN) {
                         // if we reached the entire closing phrase...
                         // ( </STMTTRN> )
-                        char* slice = malloc(11);
-                        strncpy(slice, &buf[i], closing_token_size);
-                        slice[10] = '\0';
-                        if (strncmp(slice, closing_token,
-                                    closing_token_size + 1) == 0) {
-                                Word* temp_word = next_word;
-                                if (temp_word != NULL) {
-                                        free(temp_word->name);
-                                        free(temp_word);
-                                        next_word = NULL;
-                                }
-                                ending_index = i + 11;
-                                free(slice);
-                                datacount = 0;
-                                memset(data, '\0', 1024);
+                        if (checkForStmtEnd(buf, &next_word, data,
+                                            &ending_index, &datacount, i,
+                                            closing_token,
+                                            closing_token_size) == 1) {
                                 break;
                         }
-                        free(slice);
                         // if we reach the particular closing phrase
                         // for the section...
                         // e.g. ( </TRNTYPE> )
-                        char* close_slice = malloc(close_slice_size + 1);
-                        strncpy(close_slice, &buf[i], close_slice_size);
-                        close_slice[2] = '\0';
-                        if (strncmp(close_slice, (char*)CLOSE_WORD, close_slice_size) == 0) {
-                                Word* ending_word =
-                                    getword(buf, i + close_slice_size, file_size);
-                                if (strncmp(ending_word->name, next_word->name,
-                                            end_section_cmp_delim) == 0) {
-                                        data[datacount] = string_terminator;
-                                        datacount = 0;
-                                        updateTransaction(tr, next_word->name,
-                                                          data);
-                                        // success, we've hit the end of the xml
-                                        // section
-                                        // find the next non-whitespace block
-                                        // (should be '<')
-                                        while (iswhitespace(buf[i])) {
-                                                i++;
-                                        }
-                                }
-
-                                free(ending_word->name);
-                                free(ending_word);
-                        }
-                        free(close_slice);
+                        checkForSectionEnd(buf, file_size, close_slice_size,
+                                           data, datacount, next_word, &i, tr);
 
                         Word* temp_word = next_word;
                         if (temp_word != NULL) {
@@ -180,7 +143,56 @@ Transaction* createtransaction(const char* buf, int start_idx,
         }
         return tr;
 }
+int checkForStmtEnd(const char* buf, Word** next_word, char* data,
+                    int* ending_index, int* datacount, int buf_idx,
+                    char* closing_token, int closing_token_size) {
+        char slice[closing_token_size + 1];
+        strncpy(slice, &buf[buf_idx], closing_token_size);
+        slice[closing_token_size] = '\0';
+        if (strncmp(slice, closing_token, closing_token_size + 1) == 0) {
+                Word* temp_word = *next_word;
+                if (temp_word != NULL) {
+                        free(temp_word->name);
+                        free(temp_word);
+                        *next_word = NULL;
+                }
+                *ending_index = buf_idx + closing_token_size + 1;
+                *datacount = 0;
+                memset(data, '\0', TXN_FIELD_BUF_SIZE);
+                return 1;
+        }
+        return 0;
+}
 
+void checkForSectionEnd(const char* buf, size_t file_size, int close_slice_size,
+                        char* data, int datacount, Word* next_word,
+                        int* buf_idx, Transaction* tr) {
+        const int end_section_cmp_delim = 12;
+        const char string_terminator = '\0';
+        char close_slice[close_slice_size + 1];
+        strncpy(close_slice, &buf[*buf_idx], close_slice_size);
+        close_slice[close_slice_size] = '\0';
+        if (strncmp(close_slice, (char*)CLOSE_WORD, close_slice_size) == 0) {
+                Word* ending_word =
+                    getword(buf, *buf_idx + close_slice_size, file_size);
+                if (strncmp(ending_word->name, next_word->name,
+                            end_section_cmp_delim) == 0) {
+                        data[datacount] = string_terminator;
+                        datacount = 0;
+                        updateTransaction(tr, next_word->name, data);
+                        // success, we've hit the end of the xml
+                        // section
+                        // find the next non-whitespace block
+                        // (should be '<')
+                        while (iswhitespace(buf[*buf_idx])) {
+                                *buf_idx = *buf_idx + 1;
+                        }
+                }
+
+                free(ending_word->name);
+                free(ending_word);
+        }
+}
 void updateTransaction(Transaction* tr, const char* wordname,
                        const char* data) {
         if (strncmp(wordname, TRNAMT, 6) == 0) {
@@ -221,4 +233,3 @@ int iswhitespace(const char ch) {
         }
         return 0;
 }
-
