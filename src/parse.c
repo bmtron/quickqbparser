@@ -1,4 +1,4 @@
-#include "lex.h"
+#include "parse.h"
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -14,9 +14,6 @@ Transaction** parsedoc(int fd) {
         // int read_val = read(fd, read_buffer, MAX_BUFFER_SIZE);
 
         int read_val;
-        int base_pos_counter, search_pos_counter;
-        base_pos_counter = 0;
-        search_pos_counter = 0;
 
         Transaction** txns =
             calloc(RESPONSIBLE_TRANSACTION_AMOUNT, sizeof(Transaction*));
@@ -24,11 +21,11 @@ Transaction** parsedoc(int fd) {
 
         while ((read_val = read(fd, read_buffer, file_size)) > 0) {
                 printf("readval: %d\n", read_val);
-                for (int i = 0; i < file_size; i++) {
+                for (size_t i = 0; i < file_size; i++) {
                         if (read_buffer[i] == '\0') {
                                 printf(
-                                    "Reached null terminator at position %d\n",
-                                    base_pos_counter);
+                                    "Reached null terminator at position %ld\n",
+                                    i);
                                 break;
                         }
                         if (read_buffer[i] == START_TOKEN) {
@@ -67,7 +64,7 @@ Word* getword(const char* buf, int start_idx, size_t file_size) {
         Word* word = malloc(sizeof(Word));
         word->name = malloc(sizeof(char) * WORD_BUF_SIZE);
         int letter_count = 0;
-        for (int i = start_idx; i < file_size; i++) {
+        for (size_t i = start_idx; i < file_size; i++) {
                 if (buf[i] == CLOSE_TOKEN) {
                         i++;
                         continue;
@@ -104,7 +101,7 @@ Transaction* createtransaction(const char* buf, int start_idx,
 
         int datacount = 0;
         int ending_index = start_idx;
-        for (int i = start_idx; i < file_size; i++) {
+        for (size_t i = start_idx; i < file_size; i++) {
                 if (buf[i] == START_TOKEN) {
                         // if we reached the entire closing phrase...
                         // ( </STMTTRN> )
@@ -144,7 +141,7 @@ Transaction* createtransaction(const char* buf, int start_idx,
         return tr;
 }
 int checkForStmtEnd(const char* buf, Word** next_word, char* data,
-                    int* ending_index, int* datacount, int buf_idx,
+                    int* ending_index, int* datacount, size_t buf_idx,
                     char* closing_token, int closing_token_size) {
         char slice[closing_token_size + 1];
         strncpy(slice, &buf[buf_idx], closing_token_size);
@@ -166,7 +163,7 @@ int checkForStmtEnd(const char* buf, Word** next_word, char* data,
 
 void checkForSectionEnd(const char* buf, size_t file_size, int close_slice_size,
                         char* data, int datacount, Word* next_word,
-                        int* buf_idx, Transaction* tr) {
+                        size_t* buf_idx, Transaction* tr) {
         const int end_section_cmp_delim = 12;
         const char string_terminator = '\0';
         char close_slice[close_slice_size + 1];
@@ -195,34 +192,36 @@ void checkForSectionEnd(const char* buf, size_t file_size, int close_slice_size,
 }
 void updateTransaction(Transaction* tr, const char* wordname,
                        const char* data) {
+        const int max_buf_size_without_null_term = TXN_FIELD_BUF_SIZE - 2;
+        const int max_buf_size_with_null_term = TXN_FIELD_BUF_SIZE - 1;
         if (strncmp(wordname, TRNAMT, 6) == 0) {
-                strncpy(tr->amount, data, TXN_FIELD_BUF_SIZE - 2);
-                tr->amount[TXN_FIELD_BUF_SIZE - 1] = '\0';
+                strncpy(tr->amount, data, max_buf_size_without_null_term);
+                tr->amount[max_buf_size_with_null_term] = '\0';
                 return;
         }
         if (strncmp(wordname, TRNTYP, 6) == 0) {
-                strncpy(tr->type, data, TXN_FIELD_BUF_SIZE - 2);
-                tr->type[TXN_FIELD_BUF_SIZE - 1] = '\0';
+                strncpy(tr->type, data, max_buf_size_without_null_term);
+                tr->type[max_buf_size_with_null_term] = '\0';
                 return;
         }
         if (strncmp(wordname, DTPOSTED, 8) == 0) {
-                strncpy(tr->dateposted, data, TXN_FIELD_BUF_SIZE - 2);
-                tr->dateposted[TXN_FIELD_BUF_SIZE - 1] = '\0';
+                strncpy(tr->dateposted, data, max_buf_size_without_null_term);
+                tr->dateposted[max_buf_size_with_null_term] = '\0';
                 return;
         }
         if (strncmp(wordname, REFNUM, 6) == 0) {
-                strncpy(tr->refnum, data, TXN_FIELD_BUF_SIZE - 2);
-                tr->refnum[TXN_FIELD_BUF_SIZE - 1] = '\0';
+                strncpy(tr->refnum, data, max_buf_size_without_null_term);
+                tr->refnum[max_buf_size_with_null_term] = '\0';
                 return;
         }
         if (strncmp(wordname, NAME, 4) == 0) {
-                strncpy(tr->name, data, TXN_FIELD_BUF_SIZE - 2);
-                tr->name[TXN_FIELD_BUF_SIZE - 1] = '\0';
+                strncpy(tr->name, data, max_buf_size_without_null_term);
+                tr->name[max_buf_size_with_null_term] = '\0';
                 return;
         }
         if (strncmp(wordname, MEMO, 4) == 0) {
-                strncpy(tr->memo, data, TXN_FIELD_BUF_SIZE - 2);
-                tr->memo[TXN_FIELD_BUF_SIZE - 1] = '\0';
+                strncpy(tr->memo, data, max_buf_size_without_null_term);
+                tr->memo[max_buf_size_with_null_term] = '\0';
                 return;
         }
 }

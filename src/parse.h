@@ -46,8 +46,8 @@ void updateTransaction(Transaction* tr, const char* wordname, const char* data);
 
 void checkForSectionEnd(const char* buf, size_t file_size, int close_slice_size,
                         char* data, int datacount, Word* next_word,
-                        int* buf_idx, Transaction* tr);
+                        size_t* buf_idx, Transaction* tr);
 int checkForStmtEnd(const char* buf, Word** next_word, char* data,
-                    int* ending_index, int* datacount, int buf_idx,
+                    int* ending_index, int* datacount, size_t buf_idx,
                     char* closing_token, int closing_token_size);
 #endif

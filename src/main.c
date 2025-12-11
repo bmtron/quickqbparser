@@ -3,7 +3,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "lex.h"
+#include "parse.h"
 
 int main(int argc, char** argv) {
         printf("PARSINATOR\n");
